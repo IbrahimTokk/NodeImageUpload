@@ -1,12 +1,12 @@
 const express = require("express");
 const app = express();
-const bodyParser = require('body-parser')
 const mustacheExpress = require("mustache-express");
 const {createConnection, Connection, getConnection} = require("typeorm");
 
 app.engine('mustache', mustacheExpress());
 app.set('view engine', 'mustache');
 app.set('views', __dirname + '/Public');
+app.use('/', express.static('Images'));
 
 const fileUpload = require('express-fileupload');
 app.use(fileUpload({
@@ -43,6 +43,34 @@ app.get('/upload', (req, res) => {
         }
     )
 });
+
+app.post('/upload', (req, res) => {
+    let connection = getConnection();
+    connection.query(
+        'SELECT MAX(id) as mID from data', function (error, results, fields) {
+            let photoID = 1;
+            if(results != null) {
+                photoID = results[0].mID + 1;
+            }
+            
+            req.files.photo.mv(`./Images/photo${photoID}.jpg`, (err) => {
+                if(err)
+                   return res.status(500).send(err);
+            })
+            
+            const title = req.body.title;
+            const description = req.body.description;
+            const photo = "/photo" + photoID + ".jpg";
+
+            connection.query(`INSERT INTO data (title, description, photo) VALUES ("${title}", "${description}", "${photo}")`, function (error, resultsData, fields) {
+                connection.query('SELECT title, description, photo FROM data', function (error, results, fields) {
+                    console.log("results:", results)
+                    return res.render('ImageUpload', { response: results });
+                })
+            })
+        }
+    )
+})
 
 app.listen(port, () => {
     console.log(`Exemple app listening at http://localhost:${port}`);
